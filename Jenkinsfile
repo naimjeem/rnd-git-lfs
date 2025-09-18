@@ -81,6 +81,8 @@ pipeline {
                                 exit /b 1
                             ) else (
                                 echo Git LFS is available
+                                echo Checking Git LFS configuration...
+                                git lfs env
                             )
                         '''
                     }
@@ -99,7 +101,16 @@ pipeline {
                     if (isUnix()) {
                         sh 'git lfs install'
                     } else {
-                        bat 'git lfs install'
+                        bat '''
+                            echo Initializing Git LFS on Windows...
+                            git lfs install --force
+                            if %errorlevel% neq 0 (
+                                echo Git LFS install failed, trying alternative approach...
+                                git lfs update --force
+                                git lfs install --force
+                                git lfs track "*.bin"
+                            )
+                        '''
                     }
                     
                     // Pull LFS files
@@ -164,10 +175,21 @@ pipeline {
                         '''
                     } else {
                         bat '''
+                            echo Running Windows Git LFS test...
                             if exist "test-lfs.bat" (
                                 call test-lfs.bat
                             ) else (
-                                echo test-lfs.bat not found, skipping test
+                                echo test-lfs.bat not found, running manual test...
+                                echo Checking Git LFS status:
+                                git lfs ls-files
+                                echo Checking file existence:
+                                if exist "large_file.bin" (
+                                    echo large_file.bin exists
+                                    dir large_file.bin
+                                ) else (
+                                    echo large_file.bin not found, attempting LFS pull...
+                                    git lfs pull
+                                )
                             )
                         '''
                     }
